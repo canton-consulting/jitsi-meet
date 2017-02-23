@@ -7,18 +7,18 @@ var interfaceConfig = { // eslint-disable-line no-unused-vars
     DEFAULT_BACKGROUND: '#474747',
     INITIAL_TOOLBAR_TIMEOUT: 20000,
     TOOLBAR_TIMEOUT: 4000,
-    DEFAULT_REMOTE_DISPLAY_NAME: "Fellow Jitster",
-    DEFAULT_LOCAL_DISPLAY_NAME: "me",
-    SHOW_JITSI_WATERMARK: true,
+    DEFAULT_REMOTE_DISPLAY_NAME: "anonyme",
+    DEFAULT_LOCAL_DISPLAY_NAME: "moi",
+    SHOW_JITSI_WATERMARK: false,
     JITSI_WATERMARK_LINK: "https://jitsi.org",
     // if watermark is disabled by default, it can be shown only for guests
-    SHOW_WATERMARK_FOR_GUESTS: true,
+    SHOW_WATERMARK_FOR_GUESTS: false,
     SHOW_BRAND_WATERMARK: false,
     BRAND_WATERMARK_LINK: "",
     SHOW_POWERED_BY: false,
-    GENERATE_ROOMNAMES_ON_WELCOME_PAGE: true,
-    APP_NAME: "Jitsi Meet",
-    LANG_DETECTION: false,    // Allow i18n to detect the system language
+    GENERATE_ROOMNAMES_ON_WELCOME_PAGE: false,
+    APP_NAME: "Canton Conf",
+    LANG_DETECTION: true,    // Allow i18n to detect the system language
     INVITATION_POWERED_BY: true,
     /**
      * If we should show authentication block in profile
@@ -43,7 +43,7 @@ var interfaceConfig = { // eslint-disable-line no-unused-vars
      * Main Toolbar Buttons
      * All of them should be in TOOLBAR_BUTTONS
      */
-    MAIN_TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'invite', 'fullscreen', 'hangup'], // jshint ignore:line
+    MAIN_TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'invite', 'fullscreen', 'hangup', 'profile', 'contacts', 'chat', 'recording', 'etherpad', 'sharedvideo', 'sip', 'dialpad', 'settings', 'raisehand', 'filmstrip'], // jshint ignore:line
     SETTINGS_SECTIONS: ['language', 'devices', 'moderator'],
     // Determines how the video would fit the screen. 'both' would fit the whole
     // screen, 'height' would fit the original video height to the height of the
@@ -57,7 +57,7 @@ var interfaceConfig = { // eslint-disable-line no-unused-vars
     filmStripOnly: false,
     //A html text to be shown to guests on the close page, false disables it
     CLOSE_PAGE_GUEST_HINT: false,
-    RANDOM_AVATAR_URL_PREFIX: false,
+    RANDOM_AVATAR_URL_PREFIX: 'https://abotars.jitsi.net/meeple/',
     RANDOM_AVATAR_URL_SUFFIX: false,
     FILM_STRIP_MAX_HEIGHT: 120,
     // Enables feedback star animation.
