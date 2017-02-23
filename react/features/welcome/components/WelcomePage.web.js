@@ -63,14 +63,30 @@ class WelcomePage extends AbstractWelcomePage {
      * @returns {ReactElement|null}
      */
     render() {
+        const pageStyle = {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'white',
+            overflow: 'hidden'
+        };
+
+        const imageStyle = {
+            position: 'absolute',
+            margin: 'auto',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0
+        };
+
         return (
-            <div id = 'welcome_page'>
-                {
-                    this._renderHeader()
-                }
-                {
-                    this._renderMain()
-                }
+            <div style = { pageStyle }>
+                <img
+                    src = { './welcome.png' }
+                    style = { imageStyle } />
             </div>
         );
     }
