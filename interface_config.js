@@ -70,5 +70,16 @@ var interfaceConfig = { // eslint-disable-line no-unused-vars
     AUDIO_LEVEL_SECONDARY_COLOR: "rgba(255,255,255,0.2)",
     POLICY_LOGO: null,
     LOCAL_THUMBNAIL_RATIO: 16/9, //16:9
-    REMOTE_THUMBNAIL_RATIO: 1 //1:1
+    REMOTE_THUMBNAIL_RATIO: 1, //1:1
+    // Documentation reference for the live streaming feature.
+    LIVE_STREAMING_HELP_LINK: "https://jitsi.org/live",
+
+    /**
+     * Whether the mobile app Jitsi Meet is to be promoted to participants
+     * attempting to join a conference in a mobile Web browser. If undefined,
+     * default to true.
+     *
+     * @type {boolean}
+     */
+    MOBILE_APP_PROMO: true
 };

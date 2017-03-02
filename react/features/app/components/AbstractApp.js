@@ -1,8 +1,12 @@
+/* global APP */
+
 import React, { Component } from 'react';
+import { I18nextProvider } from 'react-i18next';
 import { Provider } from 'react-redux';
 import { compose, createStore } from 'redux';
 import Thunk from 'redux-thunk';
 
+import { i18next } from '../../base/i18n';
 import {
     localParticipantJoined,
     localParticipantLeft
@@ -38,7 +42,7 @@ export class AbstractApp extends Component {
     }
 
     /**
-     * Initializes a new App instance.
+     * Initializes a new AbstractApp instance.
      *
      * @param {Object} props - The read-only React Component props with which
      * the new instance is to be initialized.
@@ -76,7 +80,9 @@ export class AbstractApp extends Component {
 
         dispatch(localParticipantJoined());
 
-        this._openURL(this._getDefaultURL());
+        // If a URL was explicitly specified to this React Component, then open
+        // it; otherwise, use a default.
+        this._openURL(this.props.url || this._getDefaultURL());
     }
 
     /**
@@ -120,6 +126,21 @@ export class AbstractApp extends Component {
     }
 
     /**
+     * Gets a Location object from the window with information about the current
+     * location of the document. Explicitly defined to allow extenders to
+     * override because React Native does not usually have a location property
+     * on its window unless debugging remotely in which case the browser that is
+     * the remote debugger will provide a location property on the window.
+     *
+     * @public
+     * @returns {Location} A Location object with information about the current
+     * location of the document.
+     */
+    getWindowLocation() {
+        return undefined;
+    }
+
+    /**
      * Implements React's {@link Component#render()}.
      *
      * @inheritdoc
@@ -130,11 +151,13 @@ export class AbstractApp extends Component {
 
         if (route) {
             return (
-                <Provider store = { this._getStore() }>
-                    {
-                        this._createElement(route.component)
-                    }
-                </Provider>
+                <I18nextProvider i18n = { i18next }>
+                    <Provider store = { this._getStore() }>
+                        {
+                            this._createElement(route.component)
+                        }
+                    </Provider>
+                </I18nextProvider>
             );
         }
 
@@ -211,27 +234,20 @@ export class AbstractApp extends Component {
     /**
      * Gets the default URL to be opened when this App mounts.
      *
-     * @private
+     * @protected
      * @returns {string} The default URL to be opened when this App mounts.
      */
     _getDefaultURL() {
-        // If the URL was explicitly specified to the React Component, then open
-        // it.
-        let url = this.props.url;
-
-        if (url) {
-            return url;
-        }
-
         // If the execution environment provides a Location abstraction, then
         // this App at already at that location but it must be made aware of the
         // fact.
-        const windowLocation = this._getWindowLocation();
+        const windowLocation = this.getWindowLocation();
 
         if (windowLocation) {
-            url = windowLocation.toString();
-            if (url) {
-                return url;
+            const href = windowLocation.toString();
+
+            if (href) {
+                return href;
             }
         }
 
@@ -272,21 +288,6 @@ export class AbstractApp extends Component {
     }
 
     /**
-     * Gets a Location object from the window with information about the current
-     * location of the document. Explicitly defined to allow extenders to
-     * override because React Native does not usually have a location property
-     * on its window unless debugging remotely in which case the browser that is
-     * the remote debugger will provide a location property on the window.
-     *
-     * @protected
-     * @returns {Location} A Location object with information about the current
-     * location of the document.
-     */
-    _getWindowLocation() {
-        return undefined;
-    }
-
-    /**
      * Creates a Redux store to be used by this AbstractApp if such as store is
      * not defined by the consumer of this AbstractApp through its
      * read-only React Component props.
@@ -305,6 +306,14 @@ export class AbstractApp extends Component {
 
         if (typeof store === 'undefined') {
             store = this._createStore();
+
+            // This is temporary workaround to be able to dispatch actions from
+            // non-reactified parts of the code (conference.js for example).
+            // Don't use in the react code!!!
+            // FIXME: remove when the reactification is finished!
+            if (typeof APP !== 'undefined') {
+                APP.store = store;
+            }
         }
 
         return store;
@@ -334,13 +343,7 @@ export class AbstractApp extends Component {
         // (2) A replace function would be provided to the Route in case it
         // chose to redirect to another path.
         this._onRouteEnter(route, nextState, pathname => {
-            // FIXME In order to minimize the modifications related to the
-            // removal of react-router, the Web implementation is provided
-            // bellow because the replace function is used on Web only at the
-            // time of this writing. Provide a platform-agnostic implementation.
-            // It should likely find the best Route matching the specified
-            // pathname and navigate to it.
-            window.location.pathname = pathname;
+            this._openURL(pathname);
 
             // Do not proceed with the route because it chose to redirect to
             // another path.

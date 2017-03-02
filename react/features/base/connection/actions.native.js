@@ -1,5 +1,9 @@
+/* @flow */
+
+import type { Dispatch } from 'redux';
+
 import { conferenceWillLeave } from '../conference';
-import JitsiMeetJS from '../lib-jitsi-meet';
+import JitsiMeetJS, { JitsiConnectionEvents } from '../lib-jitsi-meet';
 
 import {
     CONNECTION_DISCONNECTED,
@@ -7,29 +11,25 @@ import {
     CONNECTION_FAILED,
     SET_DOMAIN
 } from './actionTypes';
-import './reducer';
-
-const JitsiConnectionEvents = JitsiMeetJS.events.connection;
 
 /**
  * Opens new connection.
  *
- * @returns {Promise<JitsiConnection>}
+ * @returns {Function}
  */
 export function connect() {
-    return (dispatch, getState) => {
+    return (dispatch: Dispatch<*>, getState: Function) => {
         const state = getState();
-        const connectionOptions
-            = state['features/base/connection'].connectionOptions;
-        const room = state['features/base/conference'].room;
+        const { options } = state['features/base/connection'];
+        const { room } = state['features/base/conference'];
         const connection
             = new JitsiMeetJS.JitsiConnection(
-                connectionOptions.appId,
-                connectionOptions.token,
+                options.appId,
+                options.token,
                 {
-                    ...connectionOptions,
+                    ...options,
                     bosh:
-                        connectionOptions.bosh
+                        options.bosh
 
                             // XXX The Jitsi Meet deployments require the room
                             // argument to be in lower case at the time of this
@@ -40,13 +40,13 @@ export function connect() {
 
         connection.addEventListener(
                 JitsiConnectionEvents.CONNECTION_DISCONNECTED,
-                connectionDisconnected);
+                _onConnectionDisconnected);
         connection.addEventListener(
                 JitsiConnectionEvents.CONNECTION_ESTABLISHED,
-                connectionEstablished);
+                _onConnectionEstablished);
         connection.addEventListener(
                 JitsiConnectionEvents.CONNECTION_FAILED,
-                connectionFailed);
+                _onConnectionFailed);
 
         connection.connect();
 
@@ -56,11 +56,12 @@ export function connect() {
          *
          * @param {string} message - Disconnect reason.
          * @returns {void}
+         * @private
          */
-        function connectionDisconnected(message) {
+        function _onConnectionDisconnected(message: string) {
             connection.removeEventListener(
                     JitsiConnectionEvents.CONNECTION_DISCONNECTED,
-                    connectionDisconnected);
+                    _onConnectionDisconnected);
 
             dispatch(_connectionDisconnected(connection, message));
         }
@@ -69,10 +70,11 @@ export function connect() {
          * Resolves external promise when connection is established.
          *
          * @returns {void}
+         * @private
          */
-        function connectionEstablished() {
+        function _onConnectionEstablished() {
             unsubscribe();
-            dispatch(_connectionEstablished(connection));
+            dispatch(connectionEstablished(connection));
         }
 
         /**
@@ -80,11 +82,12 @@ export function connect() {
          *
          * @param {JitsiConnectionErrors} err - Connection error.
          * @returns {void}
+         * @private
          */
-        function connectionFailed(err) {
+        function _onConnectionFailed(err) {
             unsubscribe();
             console.error('CONNECTION FAILED:', err);
-            dispatch(_connectionFailed(connection, err));
+            dispatch(connectionFailed(connection, err, ''));
         }
 
         /**
@@ -96,10 +99,10 @@ export function connect() {
         function unsubscribe() {
             connection.removeEventListener(
                     JitsiConnectionEvents.CONNECTION_ESTABLISHED,
-                    connectionEstablished);
+                    _onConnectionEstablished);
             connection.removeEventListener(
                     JitsiConnectionEvents.CONNECTION_FAILED,
-                    connectionFailed);
+                    _onConnectionFailed);
         }
     };
 }
@@ -110,7 +113,7 @@ export function connect() {
  * @returns {Function}
  */
 export function disconnect() {
-    return (dispatch, getState) => {
+    return (dispatch: Dispatch<*>, getState: Function) => {
         const state = getState();
         const conference = state['features/base/conference'].conference;
         const connection = state['features/base/connection'].connection;
@@ -148,7 +151,7 @@ export function disconnect() {
  *      domain: string
  *  }}
  */
-export function setDomain(domain) {
+export function setDomain(domain: string) {
     return {
         type: SET_DOMAIN,
         domain
@@ -167,7 +170,7 @@ export function setDomain(domain) {
  *     message: string
  * }}
  */
-function _connectionDisconnected(connection, message) {
+function _connectionDisconnected(connection, message: string) {
     return {
         type: CONNECTION_DISCONNECTED,
         connection,
@@ -180,13 +183,13 @@ function _connectionDisconnected(connection, message) {
  *
  * @param {JitsiConnection} connection - The JitsiConnection which was
  * established.
- * @private
  * @returns {{
  *     type: CONNECTION_ESTABLISHED,
  *     connection: JitsiConnection
  * }}
+ * @public
  */
-function _connectionEstablished(connection) {
+export function connectionEstablished(connection: Object) {
     return {
         type: CONNECTION_ESTABLISHED,
         connection
@@ -197,18 +200,22 @@ function _connectionEstablished(connection) {
  * Create an action for when the signaling connection could not be created.
  *
  * @param {JitsiConnection} connection - The JitsiConnection which failed.
- * @param {string} error - Error message.
- * @private
+ * @param {string} error - Error.
+ * @param {string} errorMessage - Error message.
  * @returns {{
  *     type: CONNECTION_FAILED,
  *     connection: JitsiConnection,
- *     error: string
+ *     error: string,
+ *     errorMessage: string
  * }}
+ * @public
  */
-function _connectionFailed(connection, error) {
+export function connectionFailed(
+    connection: Object, error: string, errorMessage: string) {
     return {
         type: CONNECTION_FAILED,
         connection,
-        error
+        error,
+        errorMessage
     };
 }

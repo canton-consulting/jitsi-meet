@@ -60,14 +60,14 @@
 @import 'components/link';
 @import 'shortcuts/main';
 @import 'components/button-control';
-@import 'components/_input-control.scss';
+@import 'components/input-control';
+@import 'components/input-slider';
 @import "modals/invite/invite";
 @import "connection-info";
 @import 'aui-components/dropdown';
 @import '404';
 @import 'policy';
 @import 'filmstrip';
-@import 'unsupported-browser/unsupported-desktop-browser';
-@import 'unsupported-browser/unsupported-mobile-browser';
+@import 'unsupported-browser/main';
 
 /* Modules END */

@@ -1,4 +1,4 @@
-/* global APP, $, config, interfaceConfig, JitsiMeetJS */
+/* global AJS, APP, $, config, interfaceConfig, JitsiMeetJS */
 import UIUtil from '../util/UIUtil';
 import UIEvents from '../../../service/UI/UIEvents';
 import SideContainerToggler from "../side_pannels/SideContainerToggler";
@@ -26,8 +26,8 @@ const buttonHandlers = {
             if (sharedVideoManager
                 && sharedVideoManager.isSharedVideoVolumeOn()
                 && !sharedVideoManager.isSharedVideoOwner()) {
-                UIUtil.animateShowElement(
-                    $("#unableToUnmutePopup"), true, 5000);
+                APP.UI.showCustomToolbarPopup(
+                    '#unableToUnmutePopup', true, 5000);
             }
             else {
                 JitsiMeetJS.analytics.sendEvent('toolbar.audio.unmuted');
@@ -120,19 +120,19 @@ const defaultToolbarButtons = {
         shortcutDescription: "keyboardShortcuts.mute",
         popups: [
             {
-                id: "micMutedPopup",
-                className: "loginmenu",
-                dataAttr: "[html]toolbar.micMutedPopup"
+                id: 'micMutedPopup',
+                className: 'loginmenu',
+                dataAttr: '[title]toolbar.micMutedPopup'
             },
             {
-                id: "unableToUnmutePopup",
-                className: "loginmenu",
-                dataAttr: "[html]toolbar.unableToUnmutePopup"
+                id: 'unableToUnmutePopup',
+                className: 'loginmenu',
+                dataAttr: '[title]toolbar.unableToUnmutePopup'
             },
             {
-                id: "talkWhileMutedPopup",
-                className: "loginmenu",
-                dataAttr: "[html]toolbar.talkWhileMutedPopup"
+                id: 'talkWhileMutedPopup',
+                className: 'loginmenu',
+                dataAttr: '[title]toolbar.talkWhileMutedPopup'
             }
         ],
         content: "Mute / Unmute",
@@ -263,11 +263,14 @@ const defaultToolbarButtons = {
         id: 'toolbar_button_sharedvideo',
         tooltipKey: 'toolbar.sharedvideo',
         className: 'button icon-shared-video',
-        html: `<ul id="sharedVideoMutedPopup" 
-                   class="loginmenu extendedToolbarPopup">
-                   <li data-i18n="[html]toolbar.sharedVideoMutedPopup"></li>
-               </ul>
-`
+        popups: [
+            {
+                id: 'sharedVideoMutedPopup',
+                className: 'loginmenu extendedToolbarPopup',
+                dataAttr: '[title]toolbar.sharedVideoMutedPopup',
+                dataAttrPosition: 'w'
+            }
+        ]
     },
     'sip': {
         id: 'toolbar_button_sip',
@@ -325,6 +328,39 @@ function getToolbarButtonPlace (btn) {
         'extended';
 }
 
+/**
+ * Event handler for side toolbar container toggled event.
+ *
+ * @param {string} containerId - ID of the container.
+ * @param {boolean} isVisible - Flag showing whether container
+ * is visible.
+ * @returns {void}
+ */
+function onSideToolbarContainerToggled(containerId, isVisible) {
+    Toolbar._handleSideToolbarContainerToggled(containerId, isVisible);
+}
+
+/**
+ * Event handler for local raise hand changed event.
+ *
+ * @param {boolean} isRaisedHand - Flag showing whether hand is raised.
+ * @returns {void}
+ */
+function onLocalRaiseHandChanged(isRaisedHand) {
+    Toolbar._setToggledState("toolbar_button_raisehand", isRaisedHand);
+}
+
+/**
+ * Event handler for full screen toggled event.
+ *
+ * @param {boolean} isFullScreen - Flag showing whether app in full
+ * screen mode.
+ * @returns {void}
+ */
+function onFullScreenToggled(isFullScreen) {
+    Toolbar._handleFullScreenToggled(isFullScreen);
+}
+
 Toolbar = {
     init (eventEmitter) {
         emitter = eventEmitter;
@@ -332,6 +368,9 @@ Toolbar = {
         this.enabled = true;
         this.toolbarSelector = $("#mainToolbarContainer");
         this.extendedToolbarSelector = $("#extendedToolbar");
+
+        // Unregister listeners in case of reinitialization.
+        this.unregisterListeners();
 
         // Initialise the toolbar buttons.
         // The main toolbar will only take into account
@@ -342,20 +381,11 @@ Toolbar = {
 
         this._setButtonHandlers();
 
-        APP.UI.addListener(UIEvents.SIDE_TOOLBAR_CONTAINER_TOGGLED,
-            (containerId, isVisible) => {
-                Toolbar._handleSideToolbarContainerToggled( containerId,
-                                                            isVisible);
-            });
+        this.registerListeners();
 
-        APP.UI.addListener(UIEvents.LOCAL_RAISE_HAND_CHANGED,
-            (isRaisedHand) => {
-                this._setToggledState("toolbar_button_raisehand", isRaisedHand);
-            });
-
-        APP.UI.addListener(UIEvents.FULLSCREEN_TOGGLED,
-            (isFullScreen) => {
-                Toolbar._handleFullScreenToggled(isFullScreen);
+        APP.UI.addListener(UIEvents.SHOW_CUSTOM_TOOLBAR_BUTTON_POPUP,
+            (popupID, show, timeout) => {
+                Toolbar._showCustomToolbarPopup(popupID, show, timeout);
             });
 
         if(!APP.tokenData.isGuest) {
@@ -363,6 +393,35 @@ Toolbar = {
             UIUtil.removeTooltip(
                 document.getElementById('toolbar_button_profile'));
         }
+    },
+    /**
+     *  Register listeners for UI events of toolbar component.
+     *
+     *  @returns {void}
+     */
+    registerListeners() {
+        APP.UI.addListener(UIEvents.SIDE_TOOLBAR_CONTAINER_TOGGLED,
+            onSideToolbarContainerToggled);
+
+        APP.UI.addListener(UIEvents.LOCAL_RAISE_HAND_CHANGED,
+            onLocalRaiseHandChanged);
+
+        APP.UI.addListener(UIEvents.FULLSCREEN_TOGGLED, onFullScreenToggled);
+    },
+    /**
+     *  Unregisters handlers for UI events of Toolbar component.
+     *
+     *  @returns {void}
+     */
+    unregisterListeners() {
+        APP.UI.removeListener(UIEvents.SIDE_TOOLBAR_CONTAINER_TOGGLED,
+            onSideToolbarContainerToggled);
+
+        APP.UI.removeListener(UIEvents.LOCAL_RAISE_HAND_CHANGED,
+            onLocalRaiseHandChanged);
+
+        APP.UI.removeListener(UIEvents.FULLSCREEN_TOGGLED,
+            onFullScreenToggled);
     },
     /**
      * Enables / disables the toolbar.
@@ -724,17 +783,52 @@ Toolbar = {
 
     _addPopups(buttonElement, popups = []) {
         popups.forEach((popup) => {
-            let popupElement = document.createElement("ul");
+            const popupElement = document.createElement('div');
             popupElement.id = popup.id;
             popupElement.className = popup.className;
-            let liElement = document.createElement("li");
-            liElement.setAttribute("data-i18n", popup.dataAttr);
-            popupElement.appendChild(liElement);
+            popupElement.setAttribute('data-i18n', popup.dataAttr);
+
+            let gravity = 'n';
+            if (popup.dataAttrPosition)
+                gravity = popup.dataAttrPosition;
+            // use custom attribute to save gravity option
+            // we use 'data-tooltip' in UIUtil to activate all tooltips
+            // but we want these to be manually triggered
+            popupElement.setAttribute('tooltip-gravity', gravity);
+
+            APP.translation.translateElement($(popupElement));
+
             buttonElement.appendChild(popupElement);
         });
     },
 
     /**
+     * Show custom popup/tooltip for a specified button.
+     * @param popupSelectorID the selector id of the popup to show
+     * @param show true or false/show or hide the popup
+     * @param timeout the time to show the popup
+     */
+    _showCustomToolbarPopup(popupSelectorID, show, timeout) {
+
+        const gravity = $(popupSelectorID).attr('tooltip-gravity');
+        AJS.$(popupSelectorID)
+            .tooltip({
+                trigger: 'manual',
+                html: true,
+                gravity: gravity,
+                title: 'title'});
+        if (show) {
+            AJS.$(popupSelectorID).tooltip('show');
+            setTimeout(function () {
+                // hide the tooltip
+                AJS.$(popupSelectorID).tooltip('hide');
+            }, timeout);
+        } else {
+            AJS.$(popupSelectorID).tooltip('hide');
+        }
+    },
+
+/**
      * Sets the toggled state of the given element depending on the isToggled
      * parameter.
      *

@@ -1,21 +1,31 @@
-/* global $, APP */
+/* @flow */
 
 import React, { Component } from 'react';
 import { connect as reactReduxConnect } from 'react-redux';
 
 import { connect, disconnect } from '../../base/connection';
 import { Watermarks } from '../../base/react';
+import { FeedbackButton } from '../../feedback';
+import { OverlayContainer } from '../../overlay';
+import { HideNotificationBarStyle } from '../../unsupported-browser';
+
+declare var $: Function;
+declare var APP: Object;
 
 /**
  * For legacy reasons, inline style for display none.
- * @type {{display: string}}
+ *
+ * @private
+ * @type {{
+ *     display: string
+ * }}
  */
-const DISPLAY_NONE_STYLE = {
+const _DISPLAY_NONE_STYLE = {
     display: 'none'
 };
 
 /**
- * Implements a React Component which renders initial conference layout
+ * The conference page of the Web application.
  */
 class Conference extends Component {
 
@@ -38,8 +48,8 @@ class Conference extends Component {
     componentDidMount() {
         APP.UI.start();
 
-        // XXX Temporary solution until we add React translation.
-        APP.translation.translateElement($('#videoconference_page'));
+        APP.UI.registerListeners();
+        APP.UI.bindEvents();
 
         this.props.dispatch(connect());
     }
@@ -51,7 +61,10 @@ class Conference extends Component {
      * @inheritdoc
      */
     componentWillUnmount() {
-        this.props.dispatch(disconnect());
+        APP.UI.unregisterListeners();
+        APP.UI.unbindEvents();
+
+        APP.conference.isJoined() && this.props.dispatch(disconnect());
     }
 
     /**
@@ -67,7 +80,7 @@ class Conference extends Component {
                     <div
                         className = 'notice'
                         id = 'notice'
-                        style = { DISPLAY_NONE_STYLE }>
+                        style = { _DISPLAY_NONE_STYLE }>
                         <span
                             className = 'noticeText'
                             id = 'noticeText' />
@@ -83,9 +96,9 @@ class Conference extends Component {
                     className = 'toolbar'
                     id = 'extendedToolbar'>
                     <div id = 'extendedToolbarButtons' />
-                    <a
-                        className = 'button icon-feedback'
-                        id = 'feedbackButton' />
+
+                    <FeedbackButton />
+
                     <div id = 'sideToolbarContainer' />
                 </div>
                 <div id = 'videospace'>
@@ -134,16 +147,14 @@ class Conference extends Component {
                             <span
                                 className = 'videocontainer'
                                 id = 'localVideoContainer'>
-                                <div
-                                    className = 'videocontainer__background' />
+                                <div className = 'videocontainer__background' />
                                 <span id = 'localVideoWrapper' />
                                 <audio
                                     autoPlay = { true }
                                     id = 'localAudio'
                                     muted = { true } />
                                 <div className = 'videocontainer__toolbar' />
-                                <div
-                                    className = 'videocontainer__toptoolbar' />
+                                <div className = 'videocontainer__toptoolbar' />
                                 <div
                                     className
                                         = 'videocontainer__hoverOverlay' />
@@ -159,6 +170,9 @@ class Conference extends Component {
                         </div>
                     </div>
                 </div>
+
+                <OverlayContainer />
+                <HideNotificationBarStyle />
             </div>
         );
     }

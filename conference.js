@@ -10,7 +10,7 @@ import Recorder from './modules/recorder/Recorder';
 
 import mediaDeviceHelper from './modules/devices/mediaDeviceHelper';
 
-import {reportError} from './modules/util/helpers';
+import { reload, reportError } from './modules/util/helpers';
 
 import UIEvents from './service/UI/UIEvents';
 import UIUtil from './modules/UI/util/UIUtil';
@@ -19,6 +19,15 @@ import * as JitsiMeetConferenceEvents from './ConferenceEvents';
 import analytics from './modules/analytics/analytics';
 
 import EventEmitter from "events";
+
+import { conferenceFailed } from './react/features/base/conference';
+import {
+    isFatalJitsiConnectionError
+} from './react/features/base/lib-jitsi-meet';
+import {
+    mediaPermissionPromptVisibilityChanged,
+    suspendDetected
+} from './react/features/overlay';
 
 const ConnectionEvents = JitsiMeetJS.events.connection;
 const ConnectionErrors = JitsiMeetJS.errors.connection;
@@ -91,7 +100,10 @@ function createInitialLocalTracksAndConnect(roomName) {
 
     JitsiMeetJS.mediaDevices.addEventListener(
         JitsiMeetJS.events.mediaDevices.PERMISSION_PROMPT_IS_SHOWN,
-        browser => APP.UI.showUserMediaPermissionsGuidanceOverlay(browser));
+        browser =>
+            APP.store.dispatch(
+                mediaPermissionPromptVisibilityChanged(true, browser))
+    );
 
     // First try to retrieve both audio and video.
     let tryCreateLocalTracks = createLocalTracks(
@@ -109,8 +121,7 @@ function createInitialLocalTracksAndConnect(roomName) {
 
     return Promise.all([ tryCreateLocalTracks, connect(roomName) ])
         .then(([tracks, con]) => {
-            APP.UI.hideUserMediaPermissionsGuidanceOverlay();
-
+            APP.store.dispatch(mediaPermissionPromptVisibilityChanged(false));
             if (audioAndVideoError) {
                 if (audioOnlyError) {
                     // If both requests for 'audio' + 'video' and 'audio' only
@@ -203,10 +214,8 @@ function maybeRedirectToWelcomePage(options) {
         // save whether current user is guest or not, before navigating
         // to close page
         window.sessionStorage.setItem('guest', APP.tokenData.isGuest);
-        if (options.feedbackSubmitted)
-            window.location.pathname = "close.html";
-        else
-            window.location.pathname = "close2.html";
+        assignWindowLocationPathname(
+                options.feedbackSubmitted ? "close.html" : "close2.html");
         return;
     }
 
@@ -219,9 +228,40 @@ function maybeRedirectToWelcomePage(options) {
     if (config.enableWelcomePage) {
         setTimeout(() => {
             APP.settings.setWelcomePageEnabled(true);
-            window.location.pathname = "/";
+            assignWindowLocationPathname('./');
         }, 3000);
     }
+}
+
+/**
+ * Assigns a specific pathname to window.location.pathname taking into account
+ * the context root of the Web app.
+ *
+ * @param {string} pathname - The pathname to assign to
+ * window.location.pathname. If the specified pathname is relative, the context
+ * root of the Web app will be prepended to the specified pathname before
+ * assigning it to window.location.pathname.
+ * @return {void}
+ */
+function assignWindowLocationPathname(pathname) {
+    const windowLocation = window.location;
+
+    if (!pathname.startsWith('/')) {
+        // XXX To support a deployment in a sub-directory, assume that the room
+        // (name) is the last non-directory component of the path (name).
+        let contextRoot = windowLocation.pathname;
+
+        contextRoot
+            = contextRoot.substring(0, contextRoot.lastIndexOf('/') + 1);
+
+        // A pathname equal to ./ specifies the current directory. It will be
+        // fine but pointless to include it because contextRoot is the current
+        // directory.
+        pathname.startsWith('./') && (pathname = pathname.substring(2));
+        pathname = contextRoot + pathname;
+    }
+
+    windowLocation.pathname = pathname;
 }
 
 /**
@@ -305,6 +345,7 @@ class ConferenceConnector {
         this._reject(err);
     }
     _onConferenceFailed(err, ...params) {
+        APP.store.dispatch(conferenceFailed(room, err, ...params));
         logger.error('CONFERENCE FAILED:', err, ...params);
         APP.UI.hideRingOverLay();
         switch (err) {
@@ -323,7 +364,7 @@ class ConferenceConnector {
         case ConferenceErrors.NOT_ALLOWED_ERROR:
             {
                 // let's show some auth not allowed page
-                window.location.pathname = "authError.html";
+                assignWindowLocationPathname('authError.html');
             }
             break;
 
@@ -379,8 +420,6 @@ class ConferenceConnector {
             // the app. Both the errors above are unrecoverable from the library
             // perspective.
             room.leave().then(() => connection.disconnect());
-            APP.UI.showPageReloadOverlay(
-                false /* not a network type of failure */, err);
             break;
 
         case ConferenceErrors.CONFERENCE_MAX_USERS:
@@ -388,7 +427,7 @@ class ConferenceConnector {
             APP.UI.notifyMaxUsersLimitReached();
             break;
         case ConferenceErrors.INCOMPATIBLE_SERVER_VERSIONS:
-            window.location.reload();
+            reload();
             break;
         default:
             this._handleConferenceFailed(err, ...params);
@@ -435,6 +474,23 @@ function disconnect() {
     connection.disconnect();
     APP.API.notifyConferenceLeft(APP.conference.roomName);
     return Promise.resolve();
+}
+
+/**
+ * Handles CONNECTION_FAILED events from lib-jitsi-meet.
+ *
+ * @param {JitsiMeetJS.connection.error} error - The reported error.
+ * @returns {void}
+ * @private
+ */
+function _connectionFailedHandler(error) {
+    if (isFatalJitsiConnectionError(error)) {
+        APP.connection.removeEventListener(
+            ConnectionEvents.CONNECTION_FAILED,
+            _connectionFailedHandler);
+        if (room)
+            room.leave();
+    }
 }
 
 export default {
@@ -489,11 +545,13 @@ export default {
                 return createInitialLocalTracksAndConnect(options.roomName);
             }).then(([tracks, con]) => {
                 logger.log('initialized with %s local tracks', tracks.length);
+                con.addEventListener(
+                    ConnectionEvents.CONNECTION_FAILED,
+                    _connectionFailedHandler);
                 APP.connection = connection = con;
                 this.isDesktopSharingEnabled =
                     JitsiMeetJS.isDesktopSharingEnabled();
                 APP.remoteControl.init();
-                this._bindConnectionFailedHandler(con);
                 this._createRoom(tracks);
 
                 if (UIUtil.isButtonEnabled('contacts')
@@ -531,47 +589,6 @@ export default {
      */
     isLocalId (id) {
         return this.getMyUserId() === id;
-    },
-    /**
-     * Binds a handler that will handle the case when the connection is dropped
-     * in the middle of the conference.
-     * @param {JitsiConnection} connection the connection to which the handler
-     * will be bound to.
-     * @private
-     */
-    _bindConnectionFailedHandler (connection) {
-        const handler = function (error, errMsg) {
-            /* eslint-disable no-case-declarations */
-            switch (error) {
-                case ConnectionErrors.CONNECTION_DROPPED_ERROR:
-                case ConnectionErrors.OTHER_ERROR:
-                case ConnectionErrors.SERVER_ERROR:
-
-                    logger.error("XMPP connection error: " + errMsg);
-
-                    // From all of the cases above only CONNECTION_DROPPED_ERROR
-                    // is considered a network type of failure
-                    const isNetworkFailure
-                        = error === ConnectionErrors.CONNECTION_DROPPED_ERROR;
-
-                    APP.UI.showPageReloadOverlay(
-                        isNetworkFailure,
-                        "xmpp-conn-dropped:" + errMsg);
-
-                    connection.removeEventListener(
-                        ConnectionEvents.CONNECTION_FAILED, handler);
-
-                    // FIXME it feels like the conference should be stopped
-                    // by lib-jitsi-meet
-                    if (room)
-                        room.leave();
-
-                    break;
-            }
-            /* eslint-enable no-case-declarations */
-        };
-        connection.addEventListener(
-            ConnectionEvents.CONNECTION_FAILED, handler);
     },
     /**
      * Simulates toolbar button click for audio mute. Used by shortcuts and API.
@@ -647,7 +664,7 @@ export default {
      * false.
      */
     isCallstatsEnabled () {
-        return room.isCallstatsEnabled();
+        return room && room.isCallstatsEnabled();
     },
     /**
      * Sends the given feedback through CallStats if enabled.
@@ -1200,7 +1217,8 @@ export default {
 
         room.on(ConferenceEvents.TALK_WHILE_MUTED, () => {
             APP.UI.showToolbar(6000);
-            UIUtil.animateShowElement($("#talkWhileMutedPopup"), true, 5000);
+
+            APP.UI.showCustomToolbarPopup('#talkWhileMutedPopup', true, 5000);
         });
 
 /*
@@ -1335,6 +1353,7 @@ export default {
         });
 
         room.on(ConferenceEvents.SUSPEND_DETECTED, () => {
+            APP.store.dispatch(suspendDetected());
             // After wake up, we will be in a state where conference is left
             // there will be dialog shown to user.
             // We do not want video/audio as we show an overlay and after it
@@ -1355,9 +1374,6 @@ export default {
             if (localAudio) {
                 localAudio.dispose();
             }
-
-            // show overlay
-            APP.UI.showSuspendedOverlay();
         });
 
         room.on(ConferenceEvents.DTMF_SUPPORT_CHANGED, (isDTMFSupported) => {
@@ -1445,7 +1461,7 @@ export default {
         APP.UI.addListener(UIEvents.LOGOUT, () => {
             AuthHandler.logout(room).then(url => {
                 if (url) {
-                    window.location.href = url;
+                    UIUtil.redirect(url);
                 } else {
                     this.hangup(true);
                 }

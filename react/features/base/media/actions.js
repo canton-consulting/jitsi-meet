@@ -1,11 +1,13 @@
+/* @flow */
+
+import type { Dispatch } from 'redux';
+
 import {
     SET_AUDIO_MUTED,
     SET_CAMERA_FACING_MODE,
     SET_VIDEO_MUTED
 } from './actionTypes';
 import { CAMERA_FACING_MODE } from './constants';
-import './middleware';
-import './reducer';
 
 /**
  * Action to set the muted state of the local audio.
@@ -17,7 +19,7 @@ import './reducer';
  *      muted: boolean
  *  }}
  */
-export function setAudioMuted(muted) {
+export function setAudioMuted(muted: boolean) {
     return {
         type: SET_AUDIO_MUTED,
         muted
@@ -33,7 +35,7 @@ export function setAudioMuted(muted) {
  *      cameraFacingMode: CAMERA_FACING_MODE
  *  }}
  */
-export function setCameraFacingMode(cameraFacingMode) {
+export function setCameraFacingMode(cameraFacingMode: CAMERA_FACING_MODE) {
     return {
         type: SET_CAMERA_FACING_MODE,
         cameraFacingMode
@@ -50,7 +52,7 @@ export function setCameraFacingMode(cameraFacingMode) {
  *      muted: boolean
  *  }}
  */
-export function setVideoMuted(muted) {
+export function setVideoMuted(muted: boolean) {
     return {
         type: SET_VIDEO_MUTED,
         muted
@@ -63,7 +65,7 @@ export function setVideoMuted(muted) {
  * @returns {Function}
  */
 export function toggleAudioMuted() {
-    return (dispatch, getState) => {
+    return (dispatch: Dispatch<*>, getState: Function) => {
         const muted = getState()['features/base/media'].audio.muted;
 
         return dispatch(setAudioMuted(!muted));
@@ -76,7 +78,7 @@ export function toggleAudioMuted() {
  * @returns {Function}
  */
 export function toggleCameraFacingMode() {
-    return (dispatch, getState) => {
+    return (dispatch: Dispatch<*>, getState: Function) => {
         let cameraFacingMode
             = getState()['features/base/media'].video.facingMode;
 
@@ -95,7 +97,7 @@ export function toggleCameraFacingMode() {
  * @returns {Function}
  */
 export function toggleVideoMuted() {
-    return (dispatch, getState) => {
+    return (dispatch: Dispatch<*>, getState: Function) => {
         const muted = getState()['features/base/media'].video.muted;
 
         return dispatch(setVideoMuted(!muted));

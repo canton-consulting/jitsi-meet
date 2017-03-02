@@ -1,13 +1,37 @@
+/* @flow */
+
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
+import { translate, translateToHTML } from '../../base/i18n';
 import { Platform } from '../../base/react';
+
+import HideNotificationBarStyle from './HideNotificationBarStyle';
+
+/**
+ * The namespace of the CSS styles of UnsupportedMobileBrowser.
+ *
+ * @private
+ * @type {string}
+ */
+const _SNS = 'unsupported-mobile-browser';
+
+/**
+ * The namespace of the i18n/translation keys of UnsupportedMobileBrowser.
+ *
+ * @private
+ * @type {string}
+ */
+const _TNS = 'unsupportedBrowser';
 
 /**
  * The map of platforms to URLs at which the mobile app for the associated
  * platform is available for download.
+ *
+ * @private
+ * @type {Array<string>}
  */
-const URLS = {
+const _URLS = {
     android: 'https://play.google.com/store/apps/details?id=org.jitsi.meet',
     ios: 'https://itunes.apple.com/us/app/jitsi-meet/id1165103905'
 };
@@ -18,8 +42,10 @@ const URLS = {
  * @class UnsupportedMobileBrowser
  */
 class UnsupportedMobileBrowser extends Component {
+    state: Object;
+
     /**
-     * Mobile browser page component's property types.
+     * UnsupportedMobileBrowser component's property types.
      *
      * @static
      */
@@ -31,91 +57,84 @@ class UnsupportedMobileBrowser extends Component {
          * @private
          * @type {string}
          */
-        _room: React.PropTypes.string
+        _room: React.PropTypes.string,
+
+        /**
+         * The function to translate human-readable text.
+         *
+         * @public
+         * @type {Function}
+         */
+        t: React.PropTypes.func
     }
 
     /**
-     * Constructor of UnsupportedMobileBrowser component.
+     * Initializes the text and URL of the `Start a conference` / `Join the
+     * conversation` button which takes the user to the mobile app.
      *
-     * @param {Object} props - The read-only React Component props with which
-     * the new instance is to be initialized.
-     */
-    constructor(props) {
-        super(props);
-
-        // Bind methods
-        this._onJoinClick = this._onJoinClick.bind(this);
-    }
-
-    /**
-     * React lifecycle method triggered before component will mount.
-     *
-     * @returns {void}
+     * @inheritdoc
      */
     componentWillMount() {
-        const joinButtonText
-            = this.props._room ? 'Join the conversation' : 'Start a conference';
+        const joinText
+            = this.props._room ? 'joinConversation' : 'startConference';
+
+        // If the user installed the app while this Component was displayed
+        // (e.g. the user clicked the Download the App button), then we would
+        // like to open the current URL in the mobile app. The only way to do it
+        // appears to be a link with an app-specific scheme, not a Universal
+        // Link.
+        const joinURL = `org.jitsi.meet:${window.location.href}`;
 
         this.setState({
-            joinButtonText
+            joinText,
+            joinURL
         });
     }
 
     /**
-     * Renders component.
+     * Implements React's {@link Component#render()}.
      *
+     * @inheritdoc
      * @returns {ReactElement}
      */
     render() {
-        const ns = 'unsupported-mobile-browser';
-        const downloadButtonClassName = `${ns}__button ${ns}__button_primary`;
+        const { t } = this.props;
+
+        const downloadButtonClassName
+            = `${_SNS}__button ${_SNS}__button_primary`;
 
         return (
-            <div className = { ns }>
-                <div className = { `${ns}__body` }>
+            <div className = { _SNS }>
+                <div className = { `${_SNS}__body` }>
                     <img
-                        className = { `${ns}__logo` }
-                        src = '/images/logo-blue.svg' />
-                    <p className = { `${ns}__text` }>
-                        You need <strong>Jitsi Meet</strong> to join a
-                        conversation on your mobile
+                        className = { `${_SNS}__logo` }
+                        src = 'images/logo-blue.svg' />
+                    <p className = { `${_SNS}__text` }>
+                        {
+                            translateToHTML(
+                                t,
+                                `${_TNS}.appNotInstalled`,
+                                { postProcess: 'resolveAppName' })
+                        }
                     </p>
-                    <a href = { URLS[Platform.OS] }>
+                    <a href = { _URLS[Platform.OS] }>
                         <button className = { downloadButtonClassName }>
-                            Download the App
+                            { t(`${_TNS}.downloadApp`) }
                         </button>
                     </a>
-                    <p className = { `${ns}__text ${ns}__text_small` }>
-                        or if you already have it
-                        <br />
-                        <strong>then</strong>
+                    <p className = { `${_SNS}__text ${_SNS}__text_small` }>
+                        { translateToHTML(t, `${_TNS}.appInstalled`) }
                     </p>
-                    <button
-                        className = { `${ns}__button` }
-                        onClick = { this._onJoinClick }>
-                        {
-                            this.state.joinButtonText
-                        }
-                    </button>
+                    <a href = { this.state.joinURL }>
+                        <button className = { `${_SNS}__button` }>
+                            { t(`${_TNS}.${this.state.joinText}`) }
+                        </button>
+                    </a>
                 </div>
+
+                <HideNotificationBarStyle />
             </div>
         );
-    }
-
-    /**
-     * Handles clicks on the button that joins the local participant in a
-     * conference.
-     *
-     * @private
-     * @returns {void}
-     */
-    _onJoinClick() {
-        // If the user installed the app while this Component was displayed
-        // (e.g. the user clicked the Download the App button), then we would
-        // like to open the current URL in the mobile app.
-
-        // TODO The only way to do it appears to be a link with an app-specific
-        // scheme, not a Universal Link.
     }
 }
 
@@ -142,4 +161,4 @@ function _mapStateToProps(state) {
     };
 }
 
-export default connect(_mapStateToProps)(UnsupportedMobileBrowser);
+export default translate(connect(_mapStateToProps)(UnsupportedMobileBrowser));

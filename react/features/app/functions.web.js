@@ -1,6 +1,7 @@
-/* global APP, JitsiMeetJS, loggingConfig */
+/* global APP, loggingConfig */
 
 import { isRoomValid } from '../base/conference';
+import JitsiMeetJS from '../base/lib-jitsi-meet';
 import { RouteRegistry } from '../base/react';
 import { interceptComponent } from '../base/util';
 import { Conference } from '../conference';
@@ -9,13 +10,12 @@ import { WelcomePage } from '../welcome';
 import URLProcessor from '../../../modules/config/URLProcessor';
 import KeyboardShortcut
     from '../../../modules/keyboardshortcut/keyboardshortcut';
-import settings from '../../../modules/settings/Settings';
 import getTokenData from '../../../modules/tokendata/TokenData';
 import JitsiMeetLogStorage from '../../../modules/util/JitsiMeetLogStorage';
 
 const Logger = require('jitsi-meet-logger');
 
-export { _getRoomAndDomainFromUrlString } from './functions.native';
+export { _parseURIString } from './functions.native';
 
 /**
  * Determines which route is to be rendered in order to depict a specific Redux
@@ -61,7 +61,7 @@ export function init() {
     // with jitsi meet.
     APP.API.init(APP.tokenData.jwt ? { forceEnable: true } : undefined);
 
-    APP.translation.init(settings.getLanguage());
+    APP.translation.init();
 }
 
 /**

@@ -1,4 +1,7 @@
-import JitsiMeetJS from '../lib-jitsi-meet';
+import JitsiMeetJS, {
+    JitsiTrackErrors,
+    JitsiTrackEvents
+} from '../lib-jitsi-meet';
 import {
     CAMERA_FACING_MODE,
     MEDIA_TYPE
@@ -10,11 +13,6 @@ import {
     TRACK_REMOVED,
     TRACK_UPDATED
 } from './actionTypes';
-import './middleware';
-import './reducer';
-
-const JitsiTrackErrors = JitsiMeetJS.errors.track;
-const JitsiTrackEvents = JitsiMeetJS.events.track;
 
 /**
  * Request to start capturing local audio and/or video. By default, the user
