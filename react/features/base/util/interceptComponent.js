@@ -36,7 +36,7 @@ const _RULES = [
     () => {
         const OS = Platform.OS;
 
-        if (OS === 'android' || OS === 'ios') {
+        if (2 === 3 && (OS === 'android' || OS === 'ios')) {
             const mobileAppPromo
                 = typeof interfaceConfig === 'object'
                     && interfaceConfig.MOBILE_APP_PROMO;
